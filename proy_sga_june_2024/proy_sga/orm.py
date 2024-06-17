@@ -5,6 +5,8 @@ from django.utils import timezone
 from datetime import datetime
 from django.db.models.functions import Length
 import random
+from django.db.models.functions import Cast
+from django.db.models import FloatField
 
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'proy_sga.settings')
 django.setup()
@@ -133,10 +135,13 @@ def probar_orm():
                 estudiante = Estudiante.objects.get(id=i)
                 nota = Nota.objects.get(id=i)
                 detalle_nota = DetalleNota(
-                    estudiante=estudiante, nota=nota, nota1=random.uniform(4, 10),
-                    nota2=random.uniform(4, 10),
-                    recuperacion=random.uniform(4, 10) if random.choice([True, False]) else None,
-                    observacion='Sin Observacion', user=user
+                    estudiante=estudiante,
+                    nota=nota,
+                    nota1=round(random.uniform(4, 10), 2),
+                    nota2=round(random.uniform(4, 10), 2),
+                    recuperacion=round(random.uniform(4, 10), 2) if random.choice([True, False]) else None,
+                    observacion='Sin Observacion',
+                    user=user
                 )
                 detalle_nota.save()
 
@@ -380,9 +385,11 @@ def ej29():
 def ej30():
         #30. Seleccionar todas las notas cuyo promedio de nota1 y nota2 es mayor a 8.0:
         print("Detalle de las notas cuyo promedio de nota1 y nota2 es mayor a 8.0:")
-        notas = DetalleNota.objects.annotate(promedio=(F('nota1') + F('nota2')) / 2).filter(promedio__gt=8.0)
+        notas = DetalleNota.objects.annotate(
+            promedio=(Cast(F('nota1'), FloatField()) + Cast(F('nota2'), FloatField())) / 2
+        ).filter(promedio__gt=8.0)
         for nota in notas:
-            print(nota)
+            print(f"{nota}: Promedio: {round((nota.nota1 + nota.nota2) / 2, 2)}")
 
 def ej31():
         #31. Seleccionar todas las notas con nota1 menor que 6.0 y nota2 mayor que 7.0:    
@@ -445,9 +452,10 @@ def ej39():
         print("Detalle del promedio de todas las notas de un estudiante sin incluir recuperación")
         estudiante = Estudiante.objects.get(id=1)  # Cambiar el ID por el del estudiante
         promedio_notas = DetalleNota.objects.filter(estudiante=estudiante).aggregate(
-            avg_nota1=Avg('nota1'), avg_nota2=Avg('nota2')
+            avg_nota1=Avg(Cast('nota1', FloatField())), 
+            avg_nota2=Avg(Cast('nota2', FloatField()))
         )
-        print(f"Promedio de nota1: {promedio_notas['avg_nota1']}, Promedio de nota2: {promedio_notas['avg_nota2']}")
+        print(f"Promedio de nota1: {round(promedio_notas['avg_nota1'], 2)}, Promedio de nota2: {round(promedio_notas['avg_nota2'], 2)}")
 
 def ej40():
         # 40. Dado un estudiante obtener todas sus notas con el detalle de todos sus datos relacionados
@@ -615,6 +623,69 @@ def ej59():
         DetalleNota.objects.filter(nota1__lt=10).delete()
         print(f"Todas las notas con una nota1 menor a 10 han sido eliminadas físicamente.")
 
+def ej60():
+        #60. Crea un registro de notas de un estudiante, simulando una inserción de los datos tal como se explicó en el ejercicio de la creación de una factura con su detalle de productos en el archivo orm.py de la clase impartida.
+        # Obtener el usuario de ejemplo
+        user = User.objects.first()  # Supongamos que es el primer usuario creado
 
+        # Obtener datos predefinidos
+        periodo = Periodo.objects.last()  # Obtenemos el último periodo
+        profesor = Profesor.objects.first()  # Supongamos que es el primer profesor creado
+        asignatura = Asignatura.objects.first()  # Supongamos que es la primera asignatura creada
+        estudiantes = Estudiante.objects.all()
+
+        # Crear la nota
+        nota = Nota.objects.create(
+            periodo=periodo,
+            profesor=profesor,
+            asignatura=asignatura,
+            user=user
+        )
+
+        # Crear detalles de nota para los estudiantes
+        for estudiante in estudiantes:
+            nota1 = round(random.uniform(4, 10), 2)
+            nota2 = round(random.uniform(4, 10), 2)
+            recuperacion = round(random.uniform(4, 10), 2) if random.choice([True, False]) else None
+            observacion = 'Observación' if random.choice([True, False]) else ''
+
+            DetalleNota.objects.create(
+                estudiante=estudiante,
+                nota=nota,
+                nota1=nota1,
+                nota2=nota2,
+                recuperacion=recuperacion,
+                observacion=observacion,
+                user=user
+            )
+
+        print(f"Registro de notas creado para el periodo {periodo.periodo}, profesor {profesor.nombre}, asignatura {asignatura.descripcion}")
+
+def mostrarej60():
+        # Obtener los últimos 10 registros de DetalleNota
+        ultimos_registros = DetalleNota.objects.select_related('nota__periodo', 'nota__profesor', 'nota__asignatura', 'estudiante').order_by('-created')[:10]
+
+        # Mostrar los datos en la consola
+        for registro in ultimos_registros:
+            estudiante = registro.estudiante.nombre
+            periodo = registro.nota.periodo.periodo
+            profesor = registro.nota.profesor.nombre
+            asignatura = registro.nota.asignatura.descripcion
+            nota1 = registro.nota1
+            nota2 = registro.nota2
+            recuperacion = registro.recuperacion if registro.recuperacion else 'N/A'
+            observacion = registro.observacion if registro.observacion else 'N/A'
+            fecha_creacion = registro.created
+
+            print(f"Estudiante: {estudiante}")
+            print(f"Periodo: {periodo}")
+            print(f"Profesor: {profesor}")
+            print(f"Asignatura: {asignatura}")
+            print(f"Nota 1: {nota1}")
+            print(f"Nota 2: {nota2}")
+            print(f"Recuperación: {recuperacion}")
+            print(f"Observación: {observacion}")
+            print(f"Fecha de Creación: {fecha_creacion}")
+            print("-----")
 
 
